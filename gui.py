@@ -57,6 +57,8 @@ btn3 = Button(fsettings, text="Text",font=('Helvetica',25),height=1)
 btn3.pack(fill=X,pady=10)
 btn4 = Button(fsettings, text="Language",font=('Helvetica',25),height=1)
 btn4.pack(fill=X,pady=10)
+btn5 = Button(fsettings, text="Return", font=('Helvetica',25),height=1,command=click2)
+btn5.pack(pady=10)
 
 #ftime stuff
 lt = Label(ftime, text= "Set Time",font=('Helvetica',20,'bold'))
@@ -68,13 +70,15 @@ colon.grid(column=2,row=1)
 txtMinute = Entry(ftime,font=('Helvetica',40),width=5)
 txtMinute.grid(column=3,row=1)
 btnS = Button(ftime, text = "Apply", font=('Helvetica',20,'bold'))
-btnS.grid(column=2, row= 2)
-
+btnS.grid(column=1, row= 2)
+btnBack = Button(ftime,text="Return",font=('Helvetica',20,'bold'),command=click)
+btnBack.grid(column=3,row=2)
 
 #fsound stuff
 ls = Label(fsound, text= "Sound",font=('Helvetica',20,'bold'))
 ls.grid(column=2,row=0)
-
+btnBackS = Button(fsound,text="return",font=('Helvetica',20,'bold'),command=click)
+btnBackS.grid(column=1,row=1)
 
 
 def tick():
