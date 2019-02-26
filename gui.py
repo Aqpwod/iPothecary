@@ -3,6 +3,7 @@
 from tkinter import *
 import time
 
+
 #all commands go here
 def raise_frame(frame):
     frame.tkraise()
@@ -20,8 +21,8 @@ def clickSo():
     raise_frame(fsound)
 
 root = Tk()
-mainW=400
-mainH=300
+mainW=500
+mainH=400
 fmain = Frame(root,width=mainW,height=mainH)
 fsettings = Frame(root,width=mainW,height=mainH)
 fadd = Frame(root,width=mainW,height=mainH)
@@ -34,31 +35,39 @@ for frame in (fmain, fsettings, fadd, ftime, ftest,fsound):
     #frame.pack_propagate(0)
     
 root.title("Test")
-root.geometry('400x300+300+300')
+root.geometry('500x400')
 
 #fmain stuff
-mainT = Label(fmain,text="iPothecary",font=('Helvetica', 50, 'bold'))
-mainT.grid(column=1,row=0)
-btn = Button(fmain, text="Settings", command=click)
-btn.grid(column=1, row=3)
+mainT = Label(fmain,text="iPothecary",font=('Helvetica', 40, 'bold'))
+mainT.place(relx=0.5, y=50,anchor=CENTER)
+btn = Button(fmain, text="Settings", command=click,font=('Helvetica', 10))
+btn.place(relx=0.5, y=300,anchor=CENTER)
 time1 = ''
 clock = Label(fmain, font=('Helvetica', 40, 'bold'))
-clock.grid(column=1,row=1)
+clock.place(relx=0.5, y=150,anchor=CENTER)
+noticeT = Label(fmain,text= "Next pill time is at _ for _.",font=('Helvetica',15,'bold'))
+noticeT.place(relx=0.5, y=100,anchor=CENTER)
+
+pillB = Button(fmain, text="Pills",font=('Helvetica', 10))
+pillB.place(relx= 0.2,y =300, anchor =CENTER)
+newB = Button(fmain, text="+",font=('Helvetica', 10))
+newB.place(relx= 0.8,y =300,anchor =CENTER)
+
 
 #fsettings stuff
 l = Label(fsettings, text= "Settings",font=('Helvetica',20,'bold'))
 l.pack(fill=X,pady=10)
 
 btn1 = Button(fsettings, text="Set Time",font=('Helvetica',25),height=1,command=clickST)
-btn1.pack(fill=X,pady=10)
+btn1.pack(fill=X,pady=5)
 btn2 = Button(fsettings, text="Sound",font=('Helvetica',25),height=1,command=clickSo)
-btn2.pack(fill=X,pady=10)
+btn2.pack(fill=X,pady=5)
 btn3 = Button(fsettings, text="Text",font=('Helvetica',25),height=1)
-btn3.pack(fill=X,pady=10)
+btn3.pack(fill=X,pady=5)
 btn4 = Button(fsettings, text="Language",font=('Helvetica',25),height=1)
-btn4.pack(fill=X,pady=10)
+btn4.pack(fill=X,pady=5)
 btn5 = Button(fsettings, text="Return", font=('Helvetica',25),height=1,command=click2)
-btn5.pack(pady=10)
+btn5.pack(pady=5)
 
 #ftime stuff
 lt = Label(ftime, text= "Set Time",font=('Helvetica',20,'bold'))
@@ -73,6 +82,9 @@ btnS = Button(ftime, text = "Apply", font=('Helvetica',20,'bold'))
 btnS.grid(column=1, row= 2)
 btnBack = Button(ftime,text="Return",font=('Helvetica',20,'bold'),command=click)
 btnBack.grid(column=3,row=2)
+#need an alert for the time being changed
+
+
 
 #fsound stuff
 ls = Label(fsound, text= "Sound",font=('Helvetica',20,'bold'))
