@@ -1,0 +1,4 @@
+timeChange = 0
+soundChange = 0
+textChange = 0
+language = EN
