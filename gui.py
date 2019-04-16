@@ -1,16 +1,19 @@
 #imports
+import RPi.GPIO as GPIO
+
+GPIO.setmode(GPIO.BOARD)
+
 from tkinter import *
+import os
 import MySQLdb
 from tkinter import ttk
 from tkinter import font
+
 from PIL import Image,ImageTk
 from pirc522 import RFID
 from pydub import AudioSegment
 from pydub.playback import play
 import time
-import digitalio
-import board
-import adafruit_matrixkeypad
 
 #setup mysql
 db = MySQLdb.connect(host="localhost",  # your host 
@@ -19,19 +22,10 @@ db = MySQLdb.connect(host="localhost",  # your host
                      db="pills")   # name of the database
 cur = db.cursor()
 
-
 #setup RFID
-#rdr = RFID()
+rdr = RFID()
 
 #setup keypad
-cols = [digitalio.DigitalInOut(x) for x in (board.D26, board.D20, board.D21)]
-rows = [digitalio.DigitalInOut(x) for x in (board.D5, board.D6, board.D13, board.D19)]
-keys = ((1, 2, 3),
-        (4, 5, 6),
-        (7, 8, 9),
-        ('*', 0, '#'))
-keypad = adafruit_matrixkeypad.Matrix_Keypad(rows, cols, keys)
- 
 
 #all commands go here
 def raise_frame(f):
@@ -51,28 +45,35 @@ def addUser(name,rfid,age):
             (name,rfid,age)) #DayOfWeekHourMinute
         db.commit()
         
+def findD():
+    rows = cur.execute("SELECT * FROM Table_name")
+    
+        
 def rfidScan(widget,scanOn):
-    while True and scanOn:
+    print("Hi")
+    scanCode = ""
+    while scanCode == "" and scanOn:
         print("waiting")
         rdr.wait_for_tag()
         (error, tag_type) = rdr.request()
         if not error:
             print("Tag detected")
             (error, uid) = rdr.anticoll()
-        if not error:
-            print("UID: " + str(uid))
-            # Select Tag is required before Auth
-            if not rdr.select_tag(uid):
-                # Auth for block 10 (block 2 of sector 2) using default shipping key A
-                if not rdr.card_auth(rdr.auth_a, 10, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], uid):
-                # This will print something like (False, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-                    print("Reading block 10: " + str(rdr.read(10)))
-                    # Always stop crypto1 when done working
-                    rdr.stop_crypto()
+            if not error:
+                print("UID: " + str(uid))
+                scanCode=str(uid)
+                # Select Tag is required before Auth
+                if not rdr.select_tag(uid):
+                    # Auth for block 10 (block 2 of sector 2) using default shipping key A
+                    if not rdr.card_auth(rdr.auth_a, 10, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], uid):
+                    # This will print something like (False, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+                        print("Reading block 10: " + str(rdr.read(10)))
+                        # Always stop crypto1 when done working
+                        rdr.stop_crypto()
     # Calls GPIO cleanup
     rdr.cleanup()
     widget.configure(text="Success!")
-    return uid
+    return str(uid)
     
 def keyboard(frame,widget):
     keys = ["q","w","e","r","t","y","u","i","o","p",
@@ -136,6 +137,8 @@ fadd1 = Frame(root,width=mainW,height=mainH)
 fabout = Frame(root,width=mainW,height=mainH)
 fadd2 = Frame(root,width=mainW,height=mainH)
 fadd3 = Frame(root,width=mainW,height=mainH)
+fadd35 = Frame(root,width=mainW,height=mainH)
+fadd4 = Frame(root,width=mainW,height=mainH)
 ftime = Frame(root,width=mainW,height=mainH)
 fusers = Frame(root,width=mainW,height=mainH)
 fPillTime = Frame(root,width=mainW,height=mainH)
@@ -154,7 +157,7 @@ d.configure('TLabel', background="#595959",foreground="white",font='helvetica 25
 
 
 #Create Frames
-for frame in (fmain, fsettings, fadd, fadd1,fadd2,fadd3, ftime, ftest,fsound, fPillTime,
+for frame in (fmain, fsettings, fadd, fadd1,fadd2,fadd3, fadd35, fadd4, ftime, ftest,fsound, fPillTime,
               fpills,fabout,flanguage,ftext,fusers,fcont):
     frame.grid(row=0,column=0,sticky='news')
     frame.configure(bg="#595959")
@@ -263,18 +266,19 @@ addButton.place(relx= 0.5, y=300,anchor=CENTER)
 addT = ttk.Label(fadd,text="Add User",style='TLabel')
 addT.place(relx=0.5, y=50,anchor=CENTER)
 
-nameText = Entry(fadd,width=10, font=('Helvetica', 20))
-nameText.place(relx = 0.2,y=150,anchor=CENTER)
-
-rfidText = Entry(fadd,width=10, font=('Helvetica', 20))
-rfidText.place(relx = 0.4,y=150,anchor=CENTER)
-ageText = Entry(fadd,width=10, font=('Helvetica', 20))
-ageText.place(relx = 0.6,y=150,anchor=CENTER)
-
 addButton = ttk.Button(fadd,text = "Add",style='TButton',command=lambda:addUser(nameText.get(),rfidText.get(),ageText.get()))
 addButton.place(relx= 0.8, y=300,anchor=CENTER)
 Bbtn = ttk.Button(fadd, text="Cancel", style='TButton',command=lambda:raise_frame(fmain))
 Bbtn.place(relx= 0.2, y=300,anchor=CENTER)
+
+#fusers
+la = ttk.Label(fusers, text= "Users",style='TLabel')
+la.place(relx=0.5, y=50,anchor=CENTER)
+
+btnAdd = ttk.Button(fusers,text="Add User",style='TButton',command=lambda:raise_frame(fadd1))
+btnAdd.place(relx=0.5, y=150,anchor=CENTER)
+btnBack = ttk.Button(fusers,text="Return",style='TButton',command=lambda:raise_frame(fsettings))
+btnBack.place(relx=0.8, y=450,anchor=CENTER)
 
 #fadd1 stuff
 addT = ttk.Label(fadd1,text="Name",style='TLabel')
@@ -298,11 +302,28 @@ dobText.grid(row=1,column=2)
 
 keypad(fadd2,dobText)
 
-
 Cbtn = ttk.Button(fadd2, text="Cancel", style='TButton',command=lambda:raise_frame(fsettings))
 Cbtn.grid(row=6,column=1,pady=30)
-addButton = ttk.Button(fadd2,text = "Next",style='TButton',command=lambda:raise_frame(fadd3))
+addButton = ttk.Button(fadd2,text = "Next",style='TButton',command=lambda:raise_frame(fadd35))
 addButton.grid(row=6,column=3,pady=30)
+
+#fadd35 stuff
+addT = ttk.Label(fadd35,text="Allergies?",style='TLabel')
+addT.place(relx=0.5, y=50,anchor=CENTER)
+amo=IntVar()
+amp=IntVar()
+asp=IntVar()
+ibu=IntVar()
+ins=IntVar()
+
+Checkbutton(fadd35,text="Amoxicillin",variable=amo).place(relx=0.2, y=100,anchor=CENTER)
+Checkbutton(fadd35,text="Ampicillin",variable=amp).place(relx=0.2, y=150,anchor=CENTER)
+Checkbutton(fadd35,text="Aspirin",variable=asp).place(relx=0.2, y=200,anchor=CENTER)
+Checkbutton(fadd35,text="Ibuprofen",variable=ibu).place(relx=0.2, y=250,anchor=CENTER)
+Checkbutton(fadd35,text="Insulin",variable=ins).place(relx=0.2, y=300,anchor=CENTER)
+
+addButton = ttk.Button(fadd35,text = "Next",style='TButton',command=lambda:raise_frame(fadd3))
+addButton.place(relx=0.5, y=400,anchor=CENTER)
 
 #fadd3 stuff
 addT = ttk.Label(fadd3,text="Scan RFID",style='TLabel')
@@ -312,12 +333,31 @@ RFIDT = ttk.Label(fadd3,text="Please scan your RFID Chip now!",style='TLabel')
 RFIDT.place(relx=0.5, y=150,anchor=CENTER)
 
 succT = ttk.Label(fadd3,text="",style='TLabel')
-succT.place(relx=0.5, y=250,anchor=CENTER)
+succT.place(relx=0.5, y=275,anchor=CENTER)
 
-finButton = ttk.Button(fadd3,text = "Finish",style='TButton')
+finButton = ttk.Button(fadd3,text = "Finish",style='TButton',command=lambda:raise_frame(fadd4))
 finButton.place(relx= 0.8, y=350,anchor=CENTER)
 
-rfidID = rfidScan(succT,True)
+scanB = ttk.Button(fadd3,text = "SCAN",style='TButton',command=lambda:rfidScan(succT,True))
+scanB.place(relx=0.5, y=200,anchor=CENTER)
+
+
+
+
+#fadd4 stuff
+cText = ttk.Label(fadd4,text="Confirm Information",style='TLabel')
+cText.place(relx=0.5, y=50,anchor=CENTER)
+
+name = "Name: " +nameText.get()
+dob = "Date of Birth: " +dobText.get()
+
+nT = ttk.Label(fadd4,text=name,style='TLabel')
+nT.place(relx=0.5, y=125,anchor=CENTER)
+dobT = ttk.Label(fadd4,text=dob,style='TLabel')
+dobT.place(relx=0.5, y=175,anchor=CENTER)
+
+finButton = ttk.Button(fadd4,text = "Finish",style='TButton')
+finButton.place(relx= 0.8, y=350,anchor=CENTER)
 
 
 #fsettings stuff
@@ -384,30 +424,15 @@ la3.place(relx=0.5, y=350,anchor=CENTER)
 btnBack = ttk.Button(fabout,text="Return",style='TButton',command=lambda:raise_frame(fsettings))
 btnBack.place(relx=0.8, y=450,anchor=CENTER)
 
-#fusers
-la = ttk.Label(fusers, text= "Users",style='TLabel')
-la.place(relx=0.5, y=50,anchor=CENTER)
-
-btnAdd = ttk.Button(fusers,text="Add User",style='TButton',command=lambda:raise_frame(fadd2))
-btnAdd.place(relx=0.5, y=150,anchor=CENTER)
-btnBack = ttk.Button(fusers,text="Return",style='TButton',command=lambda:raise_frame(fsettings))
-btnBack.place(relx=0.8, y=450,anchor=CENTER)
 
 #ftime stuff
-comboH = ttk.Combobox(ftime, values = ["01","02","03","04","05","06","07","08","09","10","11","12"],font=('Helvetica',40),width=3)
-comboH.place(relx=0.2, y=120,anchor=CENTER)
-comboM = ttk.Combobox(ftime, values = ["00","15","30","45"],font=('Helvetica',40),width=3)
-comboM.place(relx=0.5, y=120,anchor=CENTER)
-comboAP = ttk.Combobox(ftime, values = ["AM","PM"],font=('Helvetica',40),width=3)
-comboAP.place(relx=0.75, y=120,anchor=CENTER)
-lt = Label(ftime, text= "Set Time",font=('Helvetica',40,'bold'))
+comboH = ttk.Combobox(ftime, values = ["Hawaii","Alaska","Pacific","Mountain","Central","Eastern"],font=('Helvetica',40),width=8)
+comboH.place(relx=0.5, y=120,anchor=CENTER)
+lt = ttk.Label(ftime, text= "Set Time",style='TLabel')
 lt.place(relx=0.5, y=50,anchor=CENTER)
-colon = Label(ftime,text=" : ",font=('Helvetica',40,'bold'))
-colon.place(relx=0.35, y=120,anchor=CENTER)
-btnS = Button(ftime, text = "Apply", font=('Helvetica',20,'bold'))
-btnS.place(relx=0.2, y=250,anchor=CENTER)
-btnBack = Button(ftime,text="Return",font=('Helvetica',20,'bold'),command=lambda:raise_frame(fsettings))
-btnBack.place(relx=0.8, y=250,anchor=CENTER)
+
+btnBack = ttk.Button(ftime,text="Return",style='TButton',command=lambda:raise_frame(fsettings))
+btnBack.place(relx=0.5, y=250,anchor=CENTER)
 #need an alert for the time being changed
 
 #fsound stuff
@@ -443,8 +468,11 @@ btnBackS.place(relx= 0.5, y=350,anchor=CENTER)
 def tick():
     global time1
     # get the current local time from the PC
+    os.environ['TZ'] = "US/"+comboH.get()
+    time.tzset()
     time2 = time.strftime('%H:%M:%S')
     #print (time2)
+    
     # if time string has changed, update it
     if time2 != time1:
         time1 = time2
@@ -460,20 +488,11 @@ def tick():
         miss = 1
         
     clock.after(200, tick)
-    
-def keypress():
-    keys = keypad.pressed_keys
-    if keys:
-        print("Pressed: ", keys)
-    
-    if keys == [0]:
-        raise_frame(fsettings)
-    else:
-        fmain.after(200,keypress)
 
 
+
+alarm=0
 tick()
-#keypress()
 raise_frame(fmain)
 
-root.mainloop(  )
+root.mainloop()
