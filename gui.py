@@ -1,19 +1,28 @@
 #imports
 import RPi.GPIO as GPIO
 
-GPIO.setmode(GPIO.BOARD)
+#GPIO.setmode(GPIO.BOARD)
 
 from tkinter import *
 import os
 import MySQLdb
 from tkinter import ttk
 from tkinter import font
-
+import digitalio
+import board
+from datetime import date
+import serial
 from PIL import Image,ImageTk
 from pirc522 import RFID
 from pydub import AudioSegment
 from pydub.playback import play
 import time
+
+global NAME
+global DOB
+global GENDER
+global CARE
+
 
 #setup mysql
 db = MySQLdb.connect(host="localhost",  # your host 
@@ -21,6 +30,11 @@ db = MySQLdb.connect(host="localhost",  # your host
                      passwd="ipothecary",     # password
                      db="pills")   # name of the database
 cur = db.cursor()
+
+#shit for the arduino
+#port = "/dev/ttyACM0"
+#s1 = serial.Serial(port,9600)
+#s1.flushInput()
 
 #setup RFID
 rdr = RFID()
@@ -45,35 +59,15 @@ def addUser(name,rfid,age):
             (name,rfid,age)) #DayOfWeekHourMinute
         db.commit()
         
-def findD():
-    rows = cur.execute("SELECT * FROM Table_name")
-    
         
 def rfidScan(widget,scanOn):
-    print("Hi")
-    scanCode = ""
-    while scanCode == "" and scanOn:
-        print("waiting")
-        rdr.wait_for_tag()
-        (error, tag_type) = rdr.request()
-        if not error:
-            print("Tag detected")
-            (error, uid) = rdr.anticoll()
-            if not error:
-                print("UID: " + str(uid))
-                scanCode=str(uid)
-                # Select Tag is required before Auth
-                if not rdr.select_tag(uid):
-                    # Auth for block 10 (block 2 of sector 2) using default shipping key A
-                    if not rdr.card_auth(rdr.auth_a, 10, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], uid):
-                    # This will print something like (False, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-                        print("Reading block 10: " + str(rdr.read(10)))
-                        # Always stop crypto1 when done working
-                        rdr.stop_crypto()
-    # Calls GPIO cleanup
-    rdr.cleanup()
+    global RFID
+    if scanOn:
+        rfidValue = input("RFIDNOW")
+        rfidE.insert(END,rfidValue)
     widget.configure(text="Success!")
-    return str(uid)
+    finButton.place(relx= 0.5, y=550,anchor=CENTER)
+    RFID = rfidE
     
 def keyboard(frame,widget):
     keys = ["q","w","e","r","t","y","u","i","o","p",
@@ -84,19 +78,19 @@ def keyboard(frame,widget):
     for y in range(0,3):
         for x in range(0,10):
             kbtn[x][y] = ttk.Button(frame, text=keys[k],compound="top",command=lambda k=k:insertText(keys[k],widget),width=4,style='TButton')
-            kbtn[x][y].grid(row=y+2,column=x,pady=5)
+            kbtn[x][y].grid(row=y+2,column=x,pady=15)
             if k!=29:
                 k=k+1
 
 
 def keypad(frame,widget):
-    keys = ["1","2","3","4","5","6","7","8","9","-","0","Back"]
+    keys = ["1","2","3","4","5","6","7","8","9","","0","Back"]
     k=0
     kbtn = [[0 for x in range(4)] for x in range(4)]
     for y in range(0,4):
         for x in range(0,3):
-            kbtn[x][y] = ttk.Button(frame, text=keys[k],compound="top",command=lambda k=k:insertText(keys[k],widget),width=6,style='TButton')
-            kbtn[x][y].grid(row=y+2,column=x+1,pady=10)
+            kbtn[x][y] = ttk.Button(frame, text=keys[k],compound="top",command=lambda k=k:insertText(keys[k],widget),width=7,style='TButton')
+            kbtn[x][y].grid(row=y+2,column=x+1,pady=20)
             print(k)
             if k!=11:
                 k=k+1
@@ -117,13 +111,136 @@ def cText(size):
     s.configure('TButton',font=ft)
     d = ttk.Style()
     d.configure('TLabel', font=ft)
-    
-    
 
+def dispense(motornum):
+    print("Motor "+motornum+" run")
+    n = str(motornum)
 
+    n = n.encode()
+    s1.write(n)
+
+def removeU(name):
+    cur.execute("DELETE FROM users WHERE name='"+name+"';")
+    raise_frame(fremove)
+    
+def removeConf(i,frame,name):
+    raise_frame(fremoveC)
+    CremoveUT = ttk.Label(fremoveC,text="Confirm Remove User: "+name,style='TLabel')
+    CremoveUT.place(relx=0.5, y=100,anchor=CENTER)
+    
+    CbtnNo = ttk.Button(fremove,text="Yes",style='TButton',command=lambda:removeU(name))
+    CbtnNo.place(relx=0.2, y=400,anchor=CENTER)
+    CbtnYes = ttk.Button(fremove,text="No",style='TButton',command=lambda:raise_frame(fsettings))
+    CbtnYes.place(relx=0.8, y=400,anchor=CENTER)
+    
+def remove(frame):
+    raise_frame(fremove)
+    removeUT = ttk.Label(fremove,text="Remove User",style='TLabel')
+    removeUT.place(relx=0.5, y=50,anchor=CENTER)
+    RbtnBack = ttk.Button(fremove,text="Return",style='TButton',command=lambda:raise_frame(fsettings))
+    RbtnBack.place(relx=0.8, y=500,anchor=CENTER)
+    rows = cur.execute("SELECT name, Gender, DOB FROM users")
+    result = cur.fetchall()
+    yl=150
+    i=0
+    for row in result:
+        usrTxt = row[0]+", "+row[1]+", "+str(row[2])[:4]
+        bU = ttk.Button(fremove, text=usrTxt, style='TButton',command=lambda i=i:removeU(i,frame,row[0]))
+        bU.place(relx= 0.5, y=yl,anchor=CENTER)
+        yl=yl+70
+        i=i+1
+
+def getValue(nextFrame,widget,valueSet):
+    valueSet = widget.get()
+    if widget.get():
+        raise_frame(nextFrame)
+        
+def getValueP(widget,x,y,PN):
+    if widget.get():
+        raise_paaframe(x,y,PN)
+        
 def pillFrames(x,y):
     containerT.configure(text="Container " +str(x)+" "+str(y))
+    pillAdd = ttk.Button(fcont, text="Add", style='TButton',command=lambda:raise_paframe(x,y))
+    pillAdd.place(relx= 0.8, y=300,anchor=CENTER)
     raise_frame(fcont)
+
+def raise_paframe(x,y):
+    THING = ''
+    #fpAdd Stuff
+    paddT = ttk.Label(fpAdd,text="Pill Name",style='TLabel')
+    paddT.grid(row=0,column=4,columnspan=1,pady=5)
+    pnameText = Entry(fpAdd,width=15, font=('Helvetica', 30))
+    pnameText.grid(row=1,column=4,columnspan=3,sticky=W)
+    keyboard(fpAdd,pnameText)
+    pCbtn = ttk.Button(fpAdd, text="Cancel", style='TButton',command=lambda:raise_frame(fcont))
+    pCbtn.grid(row=5,column=2,pady=5,columnspan=3)
+    paddButton = ttk.Button(fpAdd,text = "Next",style='TButton',command=lambda:getValueP(pnameText,x,y,pnameText.get()))
+    paddButton.grid(row=5,column=5,pady=5,columnspan=3)
+    raise_frame(fpAdd)
+    
+def raise_paaframe(x,y,PN):
+    #fpAdd1 Stuff
+    padd1T = ttk.Label(fpAdd1,text="Pill Amount ",style='TLabel')
+    padd1T.grid(row=0,column=2,pady=5)
+    pAText = Entry(fpAdd1,width=10, font=('Helvetica', 30))
+    pAText.grid(row=1,column=2)
+    keypad(fpAdd1,pAText)
+    Cbtn = ttk.Button(fpAdd1, text="Cancel", style='TButton',command=lambda:raise_frame(fcont))
+    Cbtn.grid(row=6,column=1,pady=30)
+    addButton = ttk.Button(fpAdd1,text = "Next",style='TButton',command=lambda:getFinalP(x,y,PN,pAText.get()))
+    addButton.grid(row=6,column=3,pady=30)
+    raise_frame(fpAdd1)
+    
+def getFinalP(x,y,pn,pa):
+    containerT = ttk.Label(fpAddF,text="Please put your "+pn+" into container "+str(x)+", "+str(y)+".",style='TLabel')
+    containerT.place(relx=0.5, y=50,anchor=CENTER)
+    Backbtn = ttk.Button(fpAddF, text="Finish", style='TButton',command=lambda:raise_frame(fmain))
+    Backbtn.place(relx= 0.5, y=500,anchor=CENTER)
+    
+    if pa:
+        month = str(date.today().month)
+        day = str(date.today().day)
+        dateN = month+day
+        cur.execute("DELETE FROM pills WHERE containerx="+str(x)+" and containery="+str(y)+";")
+        cur.execute("INSERT INTO pills (name,amount,dateIn,containerx,containery) VALUES (%s,%s,%s,%s,%s)",
+            (pn,pa,dateN,x,y)) #DayOfWeekHourMinute
+        db.commit()
+        raise_frame(fpAddF)
+    
+def getFinal(fadd4,nameV,dobV,rfidV,genV,careV):
+    raise_frame(fadd4)
+    cText = ttk.Label(fadd4,text="Confirm Information",style='TLabel')
+    cText.place(relx=0.5, y=50,anchor=CENTER)
+
+    name = "Name: " + nameV
+    dob = "Date of Birth: " +str(dobV)
+    gen = "Gender: " +genV
+    car = "Caretaker: " + careV
+
+    allI = [amo.get(),amp.get(),asp.get(),che.get(),erb.get(),ibu.get(),ins.get(),pen.get(),teg.get(),oth.get()]
+
+    nT = ttk.Label(fadd4,text=name,style='TLabel')
+    nT.place(relx=0.5, y=125,anchor=CENTER)
+    dobT = ttk.Label(fadd4,text=dob,style='TLabel')
+    dobT.place(relx=0.5, y=175,anchor=CENTER)
+    gT = ttk.Label(fadd4,text=gen,style='TLabel')
+    gT.place(relx=0.5, y=225,anchor=CENTER)
+    cT = ttk.Label(fadd4,text=car,style='TLabel')
+    cT.place(relx=0.5, y=275,anchor=CENTER)
+
+    Cbtn1 = ttk.Button(fadd4, text="Cancel", style='TButton',command=lambda:raise_frame(fsettings))
+    Cbtn1.place(relx= 0.2, y=400,anchor=CENTER)
+    finButton1 = ttk.Button(fadd4,text = "Finish",style='TButton',command=lambda:insertStuff(nameV,dobV,genV,rfidV,careV,allI))
+    finButton1.place(relx= 0.8, y=400,anchor=CENTER)
+
+    
+
+def insertStuff(nameI,dobI,genI,rfidI,careI,allI):        
+    cur.execute("INSERT INTO users (name,RFID,DOB,Gender,caretaker,amoxAll,ampiAll,aspiAll,cheAll,erbAll,ibupAll,insAll,penAll,tegAll,othAll) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (nameI,rfidI,dobI,genI,careI,allI[0],allI[1],allI[2],allI[3],allI[4],allI[5],allI[6],allI[7],allI[8],allI[9])) #DayOfWeekHourMinute
+    db.commit()
+    raise_frame(fsettings)
 
 root = Tk()
 root.wm_attributes('-type','splash')
@@ -142,12 +259,21 @@ fadd4 = Frame(root,width=mainW,height=mainH)
 ftime = Frame(root,width=mainW,height=mainH)
 fusers = Frame(root,width=mainW,height=mainH)
 fPillTime = Frame(root,width=mainW,height=mainH)
+fPillTime1 = Frame(root,width=mainW,height=mainH)
+fPillTime2 = Frame(root,width=mainW,height=mainH)
 ftest = Frame(root,width=mainW,height=mainH)
 fsound = Frame(root,width=mainW,height=mainH)
 ftext = Frame(root,width=mainW,height=mainH)
 flanguage = Frame(root,width=mainW,height=mainH)
 fpills = Frame(root,width=mainW,height=mainH)
 fcont= Frame(root,width=mainW,height=mainH)
+faddg= Frame(root,width=mainW,height=mainH)
+fremove =Frame(root,width=mainW,height=mainH)
+fremoveC =Frame(root,width=mainW,height=mainH)
+fCare= Frame(root,width=mainW,height=mainH)
+fpAdd =Frame(root,width=mainW,height=mainH)
+fpAdd1= Frame(root,width=mainW,height=mainH)
+fpAddF= Frame(root,width=mainW,height=mainH)
 
 #STYLES
 s = ttk.Style()
@@ -157,8 +283,8 @@ d.configure('TLabel', background="#595959",foreground="white",font='helvetica 25
 
 
 #Create Frames
-for frame in (fmain, fsettings, fadd, fadd1,fadd2,fadd3, fadd35, fadd4, ftime, ftest,fsound, fPillTime,
-              fpills,fabout,flanguage,ftext,fusers,fcont):
+for frame in (fmain, fsettings, fPillTime1,fadd, fadd1,fadd2,fadd3, fadd35, fadd4, ftime, ftest,fsound, fPillTime,
+              fpills, fpAddF,fCare, fPillTime2,fabout,flanguage,ftext,faddg,fusers,fpAdd,fpAdd1,fcont,fremove,fremoveC):
     frame.grid(row=0,column=0,sticky='news')
     frame.configure(bg="#595959")
     frame.configure(cursor="none")
@@ -169,9 +295,12 @@ fsettings.columnconfigure(2,weight=1)
 
 for col in range(0,10):
     fadd1.columnconfigure(col,weight=1)
+    fCare.columnconfigure(col,weight=1)
+    fpAdd.columnconfigure(col,weight=1)
 
 for col in range(0,5):
     fadd2.columnconfigure(col,weight=1)
+    fpAdd1.columnconfigure(col,weight=1)
 
 root.title("Test")
 root.geometry('1300x775')
@@ -222,7 +351,7 @@ mainT.place(relx=0.5, y=30,anchor=CENTER)
 
 pillGet = ttk.Button(fmain, style='TButton',text="PILL TIME",image=pillsImage,compound="top",command=lambda:raise_frame(fPillTime))
 pillGet.place(relx= 0.5,y=400, anchor =CENTER)
-#pillGet.place_forget()
+pillGet.place_forget()
 
 time1 = ''
 clock = Label(fmain, font=('Helvetica', 50),bg="#595959",fg="white")
@@ -240,62 +369,83 @@ newB.place(relx= 0.8,y =400,anchor =CENTER)
 containerT = ttk.Label(fcont,text="Container ",style='TLabel')
 containerT.place(relx=0.5, y=50,anchor=CENTER)
 
-noticeT = ttk.Label(fcont,style='TLabel',text= "Pills and crap")
-noticeT.place(relx=0.5, y=125,anchor=CENTER)
+pLT = ttk.Label(fcont,style='TLabel',text= "Pills")
+pLT.place(relx=0.5, y=125,anchor=CENTER)
 
 Backbtn = ttk.Button(fcont, text="Back", style='TButton',command=lambda:raise_frame(fmain))
-Backbtn.place(relx= 0.2, y=300,anchor=CENTER)
-    
+Backbtn.place(relx= 0.5, y=500,anchor=CENTER)
+
 
 #fPillTime Stuff
 addT = ttk.Label(fPillTime,text="Pill Time!",style='TLabel')
 addT.place(relx=0.5, y=50,anchor=CENTER)
+user = "___"
+pUserT = ttk.Label(fPillTime,style='TLabel',text= "Pills for User: " + user)
+pUserT.place(relx=0.5, y=125,anchor=CENTER)
 
-noticeT = ttk.Label(fPillTime,style='TLabel',text= "Pills for User")
-noticeT.place(relx=0.5, y=125,anchor=CENTER)
-
-addButton = ttk.Button(fPillTime,text = "Confirm",style='TButton')
-addButton.place(relx= 0.5, y=300,anchor=CENTER)
-
-#Another screen for RFID CONFIRMATION
-#Another screen for dispensing
-#addT = Label(fPillTime1,text="Please Scan RFID",font=('Helvetica', 50),fg="white")
+CButton = ttk.Button(fPillTime,text = "Confirm",style='TButton',command=lambda:raise_frame(fPillTime1))
+CButton.place(relx= 0.5, y=300,anchor=CENTER)
 
 
-#fadd stuff
-addT = ttk.Label(fadd,text="Add User",style='TLabel')
-addT.place(relx=0.5, y=50,anchor=CENTER)
+#fPillTime1 Stuff
+rfiT = ttk.Label(fPillTime1,text="Scan Your RFID",style='TLabel')
+rfiT.place(relx=0.5, y=50,anchor=CENTER)
 
-addButton = ttk.Button(fadd,text = "Add",style='TButton',command=lambda:addUser(nameText.get(),rfidText.get(),ageText.get()))
-addButton.place(relx= 0.8, y=300,anchor=CENTER)
-Bbtn = ttk.Button(fadd, text="Cancel", style='TButton',command=lambda:raise_frame(fmain))
-Bbtn.place(relx= 0.2, y=300,anchor=CENTER)
+nameText = Entry(fPillTime1,width=10, font=('Helvetica', 30))
+nameText.place(relx=0.5, y=150,anchor=CENTER)
 
+CButton1 = ttk.Button(fPillTime1,text = "Confirm",style='TButton',command=lambda:raise_frame(fPillTime2))
+CButton1.place(relx= 0.5, y=300,anchor=CENTER)
+
+#fPillTime2 Stuff
+d1t = ttk.Label(fPillTime2,text="Dispensing",style='TLabel')
+d1t.place(relx=0.5, y=50,anchor=CENTER)
+motornum=0
+Dispbtn = ttk.Button(fPillTime2, text="Press to Dispense!", style='TButton',command=lambda:dispense(motornum))
+Dispbtn.place(relx= 0.5, y=150,anchor=CENTER)
+
+dButton = ttk.Button(fPillTime2,text = "Done",style='TButton',command=lambda:raise_frame(fmain))
+dButton.place(relx= 0.5, y=300,anchor=CENTER)
+dButton.place_forget()
+
+#fremove stuff
+
+
+
+#fremoveC stuff
+
+
+NAME = ""
+DOB = 0
+GENDER = ""
+CARE = ""
 #fusers
 la = ttk.Label(fusers, text= "Users",style='TLabel')
 la.place(relx=0.5, y=50,anchor=CENTER)
 
 btnAdd = ttk.Button(fusers,text="Add User",style='TButton',command=lambda:raise_frame(fadd1))
 btnAdd.place(relx=0.5, y=150,anchor=CENTER)
+btnRemove = ttk.Button(fusers,text="Remove User",style='TButton',command=lambda:remove(fremove))
+btnRemove.place(relx=0.5, y=250,anchor=CENTER)
 btnBack = ttk.Button(fusers,text="Return",style='TButton',command=lambda:raise_frame(fsettings))
 btnBack.place(relx=0.8, y=450,anchor=CENTER)
 
 #fadd1 stuff
-addT = ttk.Label(fadd1,text="Name",style='TLabel')
-addT.grid(row=0,column=4,columnspan=3,pady=5)
+addT = ttk.Label(fadd1,text="         Name",style='TLabel')
+addT.grid(row=0,column=4,columnspan=1,pady=5)
 
-nameText = Entry(fadd1,width=10, font=('Helvetica', 30))
+nameText = Entry(fadd1,width=15, font=('Helvetica', 30))
 nameText.grid(row=1,column=4,columnspan=3,sticky=W)
 
 keyboard(fadd1,nameText)
 Cbtn = ttk.Button(fadd1, text="Cancel", style='TButton',command=lambda:raise_frame(fsettings))
 Cbtn.grid(row=5,column=2,pady=5,columnspan=3)
-addButton = ttk.Button(fadd1,text = "Next",style='TButton',command=lambda:raise_frame(fadd2))
+addButton = ttk.Button(fadd1,text = "Next",style='TButton',command=lambda:getValue(fadd2,nameText,NAME))
 addButton.grid(row=5,column=5,pady=5,columnspan=3)
 
 
 #fadd2 stuff
-addT = ttk.Label(fadd2,text="Date of Birth",style='TLabel')
+addT = ttk.Label(fadd2,text="Year of Birth",style='TLabel')
 addT.grid(row=0,column=2,pady=5)
 dobText = Entry(fadd2,width=10, font=('Helvetica', 30))
 dobText.grid(row=1,column=2)
@@ -304,7 +454,7 @@ keypad(fadd2,dobText)
 
 Cbtn = ttk.Button(fadd2, text="Cancel", style='TButton',command=lambda:raise_frame(fsettings))
 Cbtn.grid(row=6,column=1,pady=30)
-addButton = ttk.Button(fadd2,text = "Next",style='TButton',command=lambda:raise_frame(fadd35))
+addButton = ttk.Button(fadd2,text = "Next",style='TButton',command=lambda:getValue(faddg,dobText,DOB))
 addButton.grid(row=6,column=3,pady=30)
 
 #fadd35 stuff
@@ -313,59 +463,90 @@ addT.place(relx=0.5, y=50,anchor=CENTER)
 amo=IntVar()
 amp=IntVar()
 asp=IntVar()
+che=IntVar()
+erb=IntVar()
 ibu=IntVar()
 ins=IntVar()
+pen = IntVar()
+teg=IntVar()
+oth=IntVar()
 
-Checkbutton(fadd35,text="Amoxicillin",variable=amo).place(relx=0.2, y=100,anchor=CENTER)
-Checkbutton(fadd35,text="Ampicillin",variable=amp).place(relx=0.2, y=150,anchor=CENTER)
-Checkbutton(fadd35,text="Aspirin",variable=asp).place(relx=0.2, y=200,anchor=CENTER)
-Checkbutton(fadd35,text="Ibuprofen",variable=ibu).place(relx=0.2, y=250,anchor=CENTER)
-Checkbutton(fadd35,text="Insulin",variable=ins).place(relx=0.2, y=300,anchor=CENTER)
+Checkbutton(fadd35,text="Amoxicillin",variable=amo,font=('Helvetica', 25)).place(relx=0.2, y=100,anchor=CENTER)
+Checkbutton(fadd35,text="Ampicillin",variable=amp,font=('Helvetica', 25)).place(relx=0.2, y=150,anchor=CENTER)
+Checkbutton(fadd35,text="Aspirin",variable=asp,font=('Helvetica', 25)).place(relx=0.2, y=200,anchor=CENTER)
+Checkbutton(fadd35,text="Chemotherapy",variable=che,font=('Helvetica', 25)).place(relx=0.2, y=250,anchor=CENTER)
+Checkbutton(fadd35,text="Erbitux",variable=erb,font=('Helvetica', 25)).place(relx=0.2, y=300,anchor=CENTER)
+
+Checkbutton(fadd35,text="Ibuprofen",variable=ibu,font=('Helvetica', 25)).place(relx=0.8, y=100,anchor=CENTER)
+Checkbutton(fadd35,text="Insulin",variable=ins,font=('Helvetica', 25)).place(relx=0.8, y=150,anchor=CENTER)
+Checkbutton(fadd35,text="Penicillin",variable=pen,font=('Helvetica', 25)).place(relx=0.8, y=200,anchor=CENTER)
+Checkbutton(fadd35,text="Tegretol",variable=teg,font=('Helvetica', 25)).place(relx=0.8, y=250,anchor=CENTER)
+Checkbutton(fadd35,text="Other",variable=oth,font=('Helvetica', 25)).place(relx=0.8, y=300,anchor=CENTER)
 
 addButton = ttk.Button(fadd35,text = "Next",style='TButton',command=lambda:raise_frame(fadd3))
 addButton.place(relx=0.5, y=400,anchor=CENTER)
 
 #fadd3 stuff
-addT = ttk.Label(fadd3,text="Scan RFID",style='TLabel')
-addT.place(relx=0.5, y=50,anchor=CENTER)
+addI = Image.open("rfidScan.png")
+imageS = addI.resize((150,150),Image.ANTIALIAS)
+rScanImage = ImageTk.PhotoImage(imageS)
+
+addI = Image.open("rfidSucc.png")
+imageS = addI.resize((150,150),Image.ANTIALIAS)
+rSuccImage = ImageTk.PhotoImage(imageS)
+
 
 RFIDT = ttk.Label(fadd3,text="Please scan your RFID Chip now!",style='TLabel')
-RFIDT.place(relx=0.5, y=150,anchor=CENTER)
+RFIDT.place(relx=0.5, y=50,anchor=CENTER)
 
-succT = ttk.Label(fadd3,text="",style='TLabel')
-succT.place(relx=0.5, y=275,anchor=CENTER)
+succT = ttk.Label(fadd3,text="To scan, place your chip on the scanner below.",style='TLabel')
+succT.place(relx=0.5, y=460,anchor=CENTER)
 
-finButton = ttk.Button(fadd3,text = "Finish",style='TButton',command=lambda:raise_frame(fadd4))
-finButton.place(relx= 0.8, y=350,anchor=CENTER)
-
-scanB = ttk.Button(fadd3,text = "SCAN",style='TButton',command=lambda:rfidScan(succT,True))
-scanB.place(relx=0.5, y=200,anchor=CENTER)
+rfidE = Entry(fadd3,width=15, show="*",font=('Helvetica', 30))
+rfidE.place(relx=0.5, y=400,anchor=CENTER)
 
 
+finButton = ttk.Button(fadd3,text = "Finish",style='TButton',command=lambda:getFinal(fadd4,nameText.get(),
+                                                                                     dobText.get(),rfidE.get(),
+                                                                                     comboG.get(),careText.get()))
+finButton.place(relx= 0.8, y=550,anchor=CENTER)
+finButton.place_forget()
 
+scanB = ttk.Button(fadd3,text = "Press to start scan",style='TButton',image=rScanImage,compound="top",command=lambda:rfidScan(succT,True))
+scanB.place(relx=0.5, y=190,anchor=CENTER)
+
+#faddg stuff
+addT = ttk.Label(faddg,text="Gender",style='TLabel')
+addT.place(relx=0.5, y=50,anchor=CENTER)
+
+comboG = ttk.Combobox(faddg, values = ["Male","Female","No Specify"],font=('Helvetica',40),width=10)
+comboG.place(relx=0.5, y=150,anchor=CENTER)
+
+addButton3 = ttk.Button(faddg,text = "Next",style='TButton',command=lambda:getValue(fCare,comboG,GENDER))
+addButton3.place(relx=0.5, y=400,anchor=CENTER)
+
+
+#fCare stuff
+cText = ttk.Label(fCare,text="   Caretaker",style='TLabel')
+cText.grid(row=0,column=4,columnspan=2,pady=5)
+
+careText = Entry(fCare,width=15, font=('Helvetica', 30))
+careText.grid(row=1,column=4,columnspan=3,sticky=W)
+
+keyboard(fCare,careText)
+
+
+addButton4 = ttk.Button(fCare,text = "Next",style='TButton',command=lambda:getValue(fadd35,careText,CARE))
+addButton4.grid(row=5,column=7,pady=20,columnspan=3)
 
 #fadd4 stuff
-cText = ttk.Label(fadd4,text="Confirm Information",style='TLabel')
-cText.place(relx=0.5, y=50,anchor=CENTER)
-
-name = "Name: " +nameText.get()
-dob = "Date of Birth: " +dobText.get()
-
-nT = ttk.Label(fadd4,text=name,style='TLabel')
-nT.place(relx=0.5, y=125,anchor=CENTER)
-dobT = ttk.Label(fadd4,text=dob,style='TLabel')
-dobT.place(relx=0.5, y=175,anchor=CENTER)
-
-finButton = ttk.Button(fadd4,text = "Finish",style='TButton')
-finButton.place(relx= 0.8, y=350,anchor=CENTER)
-
 
 #fsettings stuff
 l = ttk.Label(fsettings, text= "Settings",style='TLabel')
 l.grid(row=0,column=1,pady=10)
 
 imW = int(mainW/8)
-imH = int(mainH/4.5)
+imH = int(mainH/5)
 
 timeI = Image.open("clock.png")
 imageT = timeI.resize((imW,imH),Image.ANTIALIAS)
@@ -449,11 +630,11 @@ sScale.bind("<ButtonRelease-1>",playSound)
 lt = ttk.Label(ftext, text= "Text",style='TLabel')
 lt.place(relx= 0.5, y=50,anchor=CENTER)
 
-btnSmall= ttk.Button(ftext,text="Small",style='TButton',command=lambda:cText(10))
+btnSmall= ttk.Button(ftext,text="Small",style='TButton',command=lambda:cText(18))
 btnSmall.place(relx= 0.5, y=150,anchor=CENTER)
-btnMed= ttk.Button(ftext,text="Normal",style='TButton',command=lambda:cText(20))
+btnMed= ttk.Button(ftext,text="Normal",style='TButton',command=lambda:cText(25))
 btnMed.place(relx= 0.5, y=225,anchor=CENTER)
-btnLarge= ttk.Button(ftext,text="Large",style='TButton',command=lambda:cText(30))
+btnLarge= ttk.Button(ftext,text="Large",style='TButton',command=lambda:cText(32))
 btnLarge.place(relx= 0.5, y=300,anchor=CENTER)
 
 btnBackS = ttk.Button(ftext,text="Return",style='TButton',command=lambda:raise_frame(fsettings))
@@ -483,9 +664,11 @@ def tick():
     
     if time2 == "15:40:00":
         noticeT.config(text="PILLTIMES")
-        pillGet.place(relx= 0.5,y=350, anchor =CENTER)
+        pillGet.place(relx= 0.5,y=325, anchor =CENTER)
     if time2 == "15:50:00":
         miss = 1
+        noticeT.config(text="")
+        pillGet.place_forget()
         
     clock.after(200, tick)
 
