@@ -163,6 +163,26 @@ def removeU(name):
     remove(fremove)
     
 
+def selectAR(name):
+    raise_frame(fSRTimes)
+    ART = ttk.Label(fSRTimes,text="Add or Remove Times",style='TLabel')
+    ART.place(relx=0.5, y=50,anchor=CENTER)
+
+    AButton = ttk.Button(fSRTimes,text="Add",style='TButton',command=lambda:selectPill(name))
+    AButton.place(relx=0.5, y=150,anchor=CENTER)
+    RButton = ttk.Button(fSRTimes,text="Remove",style='TButton',command=lambda:removeTime(name))
+    RButton.place(relx=0.5, y=250,anchor=CENTER)
+
+    
+    ARBButton = ttk.Button(fSRTimes,text="Return",style='TButton',command=lambda:raise_frame(fsettings))
+    ARBButton.place(relx=0.5, y=500,anchor=CENTER)
+
+def removeTime(name):
+    raise_frame(fRTimes)
+
+    completeButton = ttk.Button(fSRTimes,text="Return",style='TButton',command=lambda:raise_frame(fpComplete))
+    completeButton.place(relx=0.5, y=500,anchor=CENTER)
+    
 def selectPill(name):
     cur.execute("SELECT * FROM pills;")
     result = cur.fetchall()
@@ -275,7 +295,7 @@ def selectU(name):
 
     #nextButton = ttk.Button(fSetTimes3,text = "Next",style='TButton',command=lambda:selectPill(usName))
 
-    nextButton = ttk.Button(fSetTimes3,text = "Next",style='TButton',command=lambda:selectPill(name))
+    nextButton = ttk.Button(fSetTimes3,text = "Next",style='TButton',command=lambda:selectAR(name))
     #nextButton.place(relx= 0.8, y=550,anchor=CENTER)
     nextButton.place_forget()
 
@@ -571,6 +591,7 @@ flanguage = Frame(root,width=mainW,height=mainH)
 fpills = Frame(root,width=mainW,height=mainH)
 fcont= Frame(root,width=mainW,height=mainH)
 faddg= Frame(root,width=mainW,height=mainH)
+fRTimes=Frame(root,width=mainW,height=mainH)
 fremove =Frame(root,width=mainW,height=mainH)
 fremoveC =Frame(root,width=mainW,height=mainH)
 fCare= Frame(root,width=mainW,height=mainH)
@@ -587,6 +608,7 @@ fSetTimes5= Frame(root,width=mainW,height=mainH)
 fSetTimes6= Frame(root,width=mainW,height=mainH)
 fSetTimes7= Frame(root,width=mainW,height=mainH)
 fpComplete = Frame(root,width=mainW,height=mainH)
+fSRTimes = Frame(root,width=mainW,height=mainH)
 #STYLES
 s = ttk.Style()
 s.configure('TButton',foreground="white",activebackground="#4286f4",background="#4286f4",font='helvetica 25',relief='flat')
@@ -597,7 +619,8 @@ d.configure('TLabel', background="#595959",foreground="white",font='helvetica 25
 #Create Frames
 for frame in (fmain, fsettings, fPillTime1,fadd, faddC, fadd1,fadd2,fadd3, fadd35, fadd4, ftime, ftest,fsound, fPillTime,
               fpills, fpAddF,fCare, fPillTime2,fabout,flanguage,ftext,faddg,fusers,fpAdd,fpAdd1,fcont,fremove,
-              fSetTimes,fSetTimes1,fSetTimes2,fSetTimes3,fSetTimes4,fSetTimes5,fSetTimes6,fSetTimes7,fremoveC,fpComplete):
+              fSetTimes,fSetTimes1,fSetTimes2,fSetTimes3,fSetTimes4,fSetTimes5,fSetTimes6,fSetTimes7,
+              fSRTimes,fRTimes,fremoveC,fpComplete):
     frame.grid(row=0,column=0,sticky='news')
     frame.configure(bg="#595959")
     frame.configure(cursor="none")
