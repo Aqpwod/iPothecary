@@ -60,7 +60,7 @@ def addUser(name,rfid,age):
         db.commit()
         
         
-def rfidScan(widget,eWidget,scanOn,usName):
+def rfidScan(widget,eWidget,scanOn,usName,butt):
     global RFID
     rfidValue = input("RFIDNOW")
     rfidE.insert(END,rfidValue)
@@ -69,11 +69,10 @@ def rfidScan(widget,eWidget,scanOn,usName):
     
     rows1 = cur.execute("SELECT RFID FROM users where RFID='"+str(rfidValue)+"';")
     rResult = cur.fetchall()
-    
+    print("Hi")
     if scanOn and result and rfidValue == result[0][0]:
         widget.configure(text="Success!")
-        nextButton = ttk.Button(fSetTimes3,text = "Next",style='TButton',command=lambda:selectPill(usName))
-        nextButton.place(relx= 0.8, y=550,anchor=CENTER)
+        butt.place(relx= 0.8, y=550,anchor=CENTER)
     elif scanOn:
         widget.configure(text="Failed. Try again")
         eWidget.delete(0,'end')
@@ -128,12 +127,35 @@ def cText(size):
     d = ttk.Style()
     d.configure('TLabel', font=ft)
 
-def dispense(motornum):
-    print("Motor "+motornum+" run")
-    n = str(motornum)
+def dispense(pillList,dButton):
+    i = 1
+    mapping = []
+    for y in range(1,4):
+        for x in range(1,4):
+            i=i+1
+            mapping.append((x,y,i))
+            
+    for pill in pillList:
+        pName = pill[0]
+        pNum = pill[1]
+        rows = cur.execute("SELECT containerx,containery FROM pills where name='"+pName+"';")
+        pillLoc = cur.fetchall()
+        pillXY = (pillLoc[0][0],pillLoc[0][1])
+        for m in mapping:
+            if (m[0],m[1]) == pillXY:
+                container = m[2]
+        
+        print("Motor "+container+" run")
+        n = str(container)
 
-    n = n.encode()
-    s1.write(n)
+        n = n.encode()
+        s1.write(n)
+        
+    if s1.inWaiting()>0:
+        inputValue = s1.readline()
+        if inputValue:
+            dButton.place(relx= 0.5, y=300,anchor=CENTER)
+    
 
 def removeU(name):
     cur.execute("DELETE FROM users WHERE name='"+name+"';")
@@ -251,12 +273,13 @@ def selectU(name):
     rfidE = Entry(fSetTimes3,width=15, show="*",font=('Helvetica', 30))
     rfidE.place(relx=0.5, y=400,anchor=CENTER)
 
+    #nextButton = ttk.Button(fSetTimes3,text = "Next",style='TButton',command=lambda:selectPill(usName))
 
     nextButton = ttk.Button(fSetTimes3,text = "Next",style='TButton',command=lambda:selectPill(name))
     #nextButton.place(relx= 0.8, y=550,anchor=CENTER)
     nextButton.place_forget()
 
-    scanB = ttk.Button(fSetTimes3,text = "Press to start scan",style='TButton',image=rScanImage,compound="top",command=lambda:rfidScan(succT,rfidE,True,name))
+    scanB = ttk.Button(fSetTimes3,text = "Press to start scan",style='TButton',image=rScanImage,compound="top",command=lambda:rfidScan(succT,rfidE,True,name,nextButton))
     scanB.place(relx=0.5, y=190,anchor=CENTER)
     
 def removeConf(frame,name):
@@ -327,9 +350,14 @@ def pillFrames(x,y):
     PCL = Label(fcont,image = PCImage,bg="#595959")
     PCL.image=PCImage
     PCL.place(relx=0.3, y=250,anchor=CENTER)
-    
+
     rows = cur.execute("SELECT name, amount,dateIn,freeDispense FROM pills where containerx="+str(x)+" and containery="+str(y))
     result = cur.fetchall()
+    
+    pillFreeD = ttk.Button(fcont, text="Dispense from "+str(x)+","+str(y), style='TButton')
+    dContButton = ttk.Button(fcont,text = "Done",style='TButton',command=lambda:raise_frame(fpills))
+    dContButton.place_forget()
+    
     if result:
         pillNameT = result[0][0]
         pillAmountT = str(result[0][1])
@@ -341,6 +369,9 @@ def pillFrames(x,y):
         pillNP.configure(text="No Pills in this Container")
     
     if result and result[0][3]==1:
+        pillList = []
+        pillList.append((pillNameT,1))
+        pillFreeD.configure(command=lambda:dispense(pillList,dContButton))
         pillFreeD.place(relx= 0.6, y=405,anchor=CENTER)
     else:
         pillFreeD.place_forget()
@@ -435,6 +466,84 @@ def insertStuff(nameI,dobI,genI,rfidI,careI,allI):
     rfidE.delete(0,'end')
     careText.delete(0,'end')
     raise_frame(fsettings)
+
+
+def pillTime(user,time):
+    raise_frame(fPillTime)
+    #fPillTime Stuff
+    #addT = ttk.Label(fPillTime,text="Pill Time!",style='TLabel')
+    #addT.place(relx=0.5, y=50,anchor=CENTER)
+    pUserT = ttk.Label(fPillTime,style='TLabel',text= "Pills for User: " + user)
+    pUserT.place(relx=0.5, y=50,anchor=CENTER)
+
+    rows = cur.execute("SELECT pillName, number FROM pilltimes where user = '"+user+"' and timeNext = '"+time+"'")
+    result = cur.fetchall()
+    yl=150
+    i=0
+    pillList = []
+    for row in result:
+        pillList.append((row[0],row[1]))
+        pillTxt = str(row[1])+"x "+row[0]
+        pillL = ttk.Label(fPillTime,text=pillTxt,style='TLabel')
+        pillL.place(relx=0.5, y=yl,anchor=CENTER)
+        yl=yl+60
+        i=i+1
+
+    CButton = ttk.Button(fPillTime,text = "Confirm",style='TButton',command=lambda:pillTime1(user,time,pillList))
+    CButton.place(relx= 0.5, y=450,anchor=CENTER)
+
+def pillTime1(user,time,pillList):
+    raise_frame(fPillTime1)
+    addI = Image.open("rfidScan.png")
+    imageS = addI.resize((150,150),Image.ANTIALIAS)
+    rScanImage = ImageTk.PhotoImage(imageS)
+    #fPillTime1 Stuff
+    #rows = cur.execute("SELECT RFID FROM users where user = '"+user+"'")
+    #result = cur.fetchall()
+    #RFIDValue = result[0][0]
+    rfiT = ttk.Label(fPillTime1,text="Scan Your RFID",style='TLabel')
+    rfiT.place(relx=0.5, y=50,anchor=CENTER)
+
+    rPText = Entry(fPillTime1,width=10, font=('Helvetica', 30))
+    rPText.place(relx=0.5, y=350,anchor=CENTER)
+
+    CPButton1 = ttk.Button(fPillTime1,text = "Next",style='TButton',command=lambda:pillTime2(user,time,pillList))
+    #CPButton1.place(relx= 0.5, y=350,anchor=CENTER)
+    scanPB = ttk.Button(fPillTime1,text = "Press to start scan",style='TButton',image=rScanImage,compound="top",command=lambda:rfidScan(rfiT ,rPText,True,user,CPButton1))
+    scanPB.place(relx=0.5, y=190,anchor=CENTER)
+
+
+def pillTime2(user,time,pillList):
+    raise_frame(fPillTime2)
+    #fPillTime2 Stuff
+    d1t = ttk.Label(fPillTime2,text="Dispensing",style='TLabel')
+    d1t.place(relx=0.5, y=50,anchor=CENTER)
+    motornum=0
+    dButton = ttk.Button(fPillTime2,text = "Done",style='TButton',command=lambda:raise_frame(fmain))
+    #dButton.place(relx= 0.5, y=300,anchor=CENTER)
+    dButton.place_forget()
+    
+    Dispbtn = ttk.Button(fPillTime2, text="Press to Dispense!", style='TButton',command=lambda:dispense(pillList,dButton))
+    Dispbtn.place(relx= 0.5, y=150,anchor=CENTER)
+
+def removeTime():
+    raise_frame(fremove)
+    removeUT = ttk.Label(fremove,text="Select Scheduled Time",style='TLabel')
+    removeUT.place(relx=0.5, y=50,anchor=CENTER)
+    RbtnBack = ttk.Button(fremove,text="Return",style='TButton',command=lambda:raise_frame(fsettings))
+    RbtnBack.place(relx=0.8, y=500,anchor=CENTER)
+    rows = cur.execute("SELECT name, pillNBam, DOB FROM users")
+    result = cur.fetchall()
+    yl=100
+    i=0
+    for row in result:
+        usrTxt = row[0]+", "+row[1]+", "+str(row[2])[:4]
+        bU = ttk.Button(fremove, text=usrTxt, style='TButton',command=lambda row=row:removeConf(frame,row[0]))
+        bU.place(relx= 0.5, y=yl,anchor=CENTER)
+        yl=yl+30
+        i=i+1
+
+
 
 root = Tk()
 root.wm_attributes('-type','splash')
@@ -557,9 +666,7 @@ pillImage = ImageTk.PhotoImage(imageS)
 mainT = Label(fmain,text="iPothecary",font=('Helvetica', 60),bg="#595959",fg="white")
 mainT.place(relx=0.5, y=30,anchor=CENTER)
 
-pillGet = ttk.Button(fmain, style='TButton',text="PILL TIME",image=pillsImage,compound="top",command=lambda:raise_frame(fPillTime))
-pillGet.place(relx= 0.5,y=400, anchor =CENTER)
-pillGet.place_forget()
+
 
 time1 = ''
 clock = Label(fmain, font=('Helvetica', 50),bg="#595959",fg="white")
@@ -621,49 +728,10 @@ pillDT.place(relx=0.6, y=270,anchor=CENTER)
 pillNP = ttk.Label(fcont,style='TLabel')
 pillNP.place(relx=0.6, y=170,anchor=CENTER)
 
-pillFreeD = ttk.Button(fcont, text="Dispense from "+str(x)+","+str(y), style='TButton',command=lambda:dispense(x,y))
-
 Backbtn = ttk.Button(fcont, text="Back", style='TButton',command=lambda:contFrameRaise(pillNT,pillAT,pillDT,pillNP))
 Backbtn.place(relx= 0.5, y=500,anchor=CENTER)
 
 
-#fPillTime Stuff
-addT = ttk.Label(fPillTime,text="Pill Time!",style='TLabel')
-addT.place(relx=0.5, y=50,anchor=CENTER)
-user = "___"
-pUserT = ttk.Label(fPillTime,style='TLabel',text= "Pills for User: " + user)
-pUserT.place(relx=0.5, y=125,anchor=CENTER)
-
-CButton = ttk.Button(fPillTime,text = "Confirm",style='TButton',command=lambda:raise_frame(fPillTime1))
-CButton.place(relx= 0.5, y=300,anchor=CENTER)
-
-
-#fPillTime1 Stuff
-rfiT = ttk.Label(fPillTime1,text="Scan Your RFID",style='TLabel')
-rfiT.place(relx=0.5, y=50,anchor=CENTER)
-
-nameText = Entry(fPillTime1,width=10, font=('Helvetica', 30))
-nameText.place(relx=0.5, y=150,anchor=CENTER)
-
-CButton1 = ttk.Button(fPillTime1,text = "Confirm",style='TButton',command=lambda:raise_frame(fPillTime2))
-CButton1.place(relx= 0.5, y=300,anchor=CENTER)
-
-#fPillTime2 Stuff
-d1t = ttk.Label(fPillTime2,text="Dispensing",style='TLabel')
-d1t.place(relx=0.5, y=50,anchor=CENTER)
-motornum=0
-Dispbtn = ttk.Button(fPillTime2, text="Press to Dispense!", style='TButton',command=lambda:dispense(motornum))
-Dispbtn.place(relx= 0.5, y=150,anchor=CENTER)
-
-dButton = ttk.Button(fPillTime2,text = "Done",style='TButton',command=lambda:raise_frame(fmain))
-dButton.place(relx= 0.5, y=300,anchor=CENTER)
-dButton.place_forget()
-
-#fremove stuff
-
-
-
-#fremoveC stuff
 
 
 NAME = ""
@@ -763,7 +831,7 @@ finButton = ttk.Button(fadd3,text = "Finish",style='TButton',command=lambda:getF
 finButton.place(relx= 0.8, y=550,anchor=CENTER)
 finButton.place_forget()
 
-scanB = ttk.Button(fadd3,text = "Press to start scan",style='TButton',image=rScanImage,compound="top",command=lambda:rfidScan(succT,rfidE,False,nameText.get()))
+scanB = ttk.Button(fadd3,text = "Press to start scan",style='TButton',image=rScanImage,compound="top",command=lambda:rfidScan(succT,rfidE,False,nameText.get(),None))
 scanB.place(relx=0.5, y=190,anchor=CENTER)
 
 #faddg stuff
@@ -910,7 +978,7 @@ def tick():
     # get the current local time from the PC
     os.environ['TZ'] = "US/"+comboH.get()
     time.tzset()
-    time2 = time.strftime('%H:%M:%S')
+    time2 = time.strftime('%m/%d/%y %H:%M:%S')
     year = str(date.today().year)
     month = str(date.today().month)
     day = str(date.today().day)
@@ -927,6 +995,8 @@ def tick():
     rows = cur.execute("SELECT * FROM pilltimes")
     result = cur.fetchall()
     tList = []
+
+    #checks which pilltime is closest to now
     if result:
         for r in result:
             tList.append((r[0],r[5]))
@@ -940,14 +1010,29 @@ def tick():
     
     noticeT.configure(text="Next Pilltime for "+nextName+" at "+nextPilltime)
     nextD = str(time.strftime('%m/%d/%y %H:%M'))
+    nextPST = datetime.strptime(nextPilltime,'%m/%d/%y %H:%M')
+    pillGet = ttk.Button(fmain, style='TButton',text="PILL TIME",image=pillsImage,compound="top")
+    userN=nextName
+    userPt=nextPilltime
+    pillGet.configure(command=lambda:pillTime(userN,userPt))
     
+    pillGet.place(relx= 0.5,y=325, anchor =CENTER)
     if nextPilltime == nextD:
+        userN=nextName
+        userPt=nextPilltime
         noticeT.config(text="PILLTIMES")
+        pillGet.configure(command=lambda:pillTime(userN,userPt))
         pillGet.place(relx= 0.5,y=325, anchor =CENTER)
-    if time2 == "15:50:00":
+
+    missTime = nextPST + timedelta(minutes=10)
+    missTime = missTime.strftime('%m/%d/%y %H:%M')
+
+    if nextD == missTime:
         miss = 1
         noticeT.config(text="")
         pillGet.place_forget()
+        cur.execute("UPDATE pilltimes SET lastMiss=0 WHERE timeNext = '"+userPt+"';")
+        db.commit()
         
     clock.after(700, tick)
 
