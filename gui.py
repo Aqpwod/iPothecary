@@ -150,12 +150,13 @@ def dispense(pillList,dButton):
 
         n = n.encode()
         s1.write(n)
-        
-    if s1.inWaiting()>0:
-        inputValue = s1.readline()
-        if inputValue:
-            dButton.place(relx= 0.5, y=300,anchor=CENTER)
-    
+        while True:
+            if s1.inWaiting()>0:
+                inputValue = s1.readline()
+                if inputValue:
+                    break
+
+    dButton.place(relx= 0.5, y=300,anchor=CENTER)
 
 def removeU(name):
     cur.execute("DELETE FROM users WHERE name='"+name+"';")
@@ -496,13 +497,13 @@ def pillTime(user,time):
     pUserT = ttk.Label(fPillTime,style='TLabel',text= "Pills for User: " + user)
     pUserT.place(relx=0.5, y=50,anchor=CENTER)
 
-    rows = cur.execute("SELECT pillName, number FROM pilltimes where user = '"+user+"' and timeNext = '"+time+"'")
+    rows = cur.execute("SELECT pillName, number,freq FROM pilltimes where user = '"+user+"' and timeNext = '"+time+"'")
     result = cur.fetchall()
     yl=150
     i=0
     pillList = []
     for row in result:
-        pillList.append((row[0],row[1]))
+        pillList.append((row[0],row[1],row[2]))
         pillTxt = str(row[1])+"x "+row[0]
         pillL = ttk.Label(fPillTime,text=pillTxt,style='TLabel')
         pillL.place(relx=0.5, y=yl,anchor=CENTER)
@@ -539,6 +540,15 @@ def pillTime2(user,time,pillList):
     d1t = ttk.Label(fPillTime2,text="Dispensing",style='TLabel')
     d1t.place(relx=0.5, y=50,anchor=CENTER)
     motornum=0
+
+    for pill in pillList:
+        freq = pill[2]
+        pillN = pill[0]
+        nextTime = time + timedelta(hours=freq)
+        nextTime = nextTime.strftime('%m/%d/%y %H:%M')
+        cur.execute("UPDATE pilltimes SET nextTime ='"+nextTime+"' WHERE user = '"+user+"' AND pillName = '"+pillN+"'")
+        db.commit()
+    
     dButton = ttk.Button(fPillTime2,text = "Done",style='TButton',command=lambda:raise_frame(fmain))
     #dButton.place(relx= 0.5, y=300,anchor=CENTER)
     dButton.place_forget()
@@ -1054,7 +1064,7 @@ def tick():
         miss = 1
         noticeT.config(text="")
         pillGet.place_forget()
-        cur.execute("UPDATE pilltimes SET lastMiss=0 WHERE timeNext = '"+userPt+"';")
+        cur.execute("UPDATE pilltimes SET lastMiss=1 WHERE timeNext = '"+userPt+"';")
         db.commit()
         
     clock.after(700, tick)
