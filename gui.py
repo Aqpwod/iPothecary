@@ -1,8 +1,5 @@
 #imports
 import RPi.GPIO as GPIO
-
-#GPIO.setmode(GPIO.BOARD)
-
 from tkinter import *
 import os
 import MySQLdb
@@ -13,7 +10,6 @@ import board
 from datetime import date,datetime,timedelta
 import serial
 from PIL import Image,ImageTk
-from pirc522 import RFID
 from pydub import AudioSegment
 from pydub.playback import play
 import time
@@ -32,14 +28,13 @@ db = MySQLdb.connect(host="localhost",  # your host
 cur = db.cursor()
 
 #shit for the arduino
-#port = "/dev/ttyACM0"
+#port1 = "/dev/ttyACM0"
 #s1 = serial.Serial(port,9600)
 #s1.flushInput()
 
-#setup RFID
-rdr = RFID()
-
-#setup keypad
+#port2 = "/dev/ttyACM1"
+#s2 = serial.Serial(port,9600)
+#s2.flushInput()
 
 #all commands go here
 def raise_frame(f):
@@ -58,8 +53,7 @@ def addUser(name,rfid,age):
         cur.execute("INSERT INTO users (name,RFID,age) VALUES (%s,%s,%s)",
             (name,rfid,age)) #DayOfWeekHourMinute
         db.commit()
-        
-        
+               
 def rfidScan(widget,eWidget,scanOn,usName,butt):
     global RFID
     rfidValue = input("RFIDNOW")
@@ -357,8 +351,22 @@ def getValue(nextFrame,widget,valueSet):
         
 def getValueP(widget,x,y,PN):
     if widget.get():
-        raise_paaframe(x,y,PN)
-        
+        raise_pinFrame(x,y,PN)
+        #raise_paaframe(x,y,PN)
+
+def raise_pinFrame(x,y,PN)
+    setT = ttk.Label(fCarePin,text="Input your caretaker pin",style='TLabel')
+    setT.grid(row=0,column=2,pady=5)
+    pinText = Entry(fCarePin,width=10, show="*",font=('Helvetica', 30))
+    pinText.grid(row=1,column=2)
+
+    keypad(fSetTimes,pinText)
+
+    Cbtn = ttk.Button(fCarePin, text="Cancel", style='TButton',command=lambda:raise_frame(fmain))
+    Cbtn.grid(row=6,column=1,pady=30)
+    addButton = ttk.Button(fCarePin,text = "Next",style='TButton',command=lambda:paaframe(x,y,PN,pinText))
+    addButton.grid(row=6,column=3,pady=30)
+    
 def pillFrames(x,y):
     addPC = Image.open("cont.png")
     imageS = addPC.resize((300,300),Image.ANTIALIAS)
@@ -420,18 +428,19 @@ def raise_paframe(x,y):
     paddButton.grid(row=5,column=5,pady=5,columnspan=3)
     raise_frame(fpAdd)
     
-def raise_paaframe(x,y,PN):
+def raise_paaframe(x,y,PN, pinText):
     #fpAdd1 Stuff
-    padd1T = ttk.Label(fpAdd1,text="Pill Amount ",style='TLabel')
-    padd1T.grid(row=0,column=2,pady=5)
-    pAText = Entry(fpAdd1,width=10, font=('Helvetica', 30))
-    pAText.grid(row=1,column=2)
-    keypad(fpAdd1,pAText)
-    Cbtn = ttk.Button(fpAdd1, text="Cancel", style='TButton',command=lambda:raise_frame(fcont))
-    Cbtn.grid(row=6,column=1,pady=30)
-    addButton = ttk.Button(fpAdd1,text = "Next",style='TButton',command=lambda:getFinalP(x,y,PN,pAText.get()))
-    addButton.grid(row=6,column=3,pady=30)
-    raise_frame(fpAdd1)
+    if pinText.get() =='1234':
+        padd1T = ttk.Label(fpAdd1,text="Pill Amount ",style='TLabel')
+        padd1T.grid(row=0,column=2,pady=5)
+        pAText = Entry(fpAdd1,width=10, font=('Helvetica', 30))
+        pAText.grid(row=1,column=2)
+        keypad(fpAdd1,pAText)
+        Cbtn = ttk.Button(fpAdd1, text="Cancel", style='TButton',command=lambda:raise_frame(fcont))
+        Cbtn.grid(row=6,column=1,pady=30)
+        addButton = ttk.Button(fpAdd1,text = "Next",style='TButton',command=lambda:getFinalP(x,y,PN,pAText.get()))
+        addButton.grid(row=6,column=3,pady=30)
+        raise_frame(fpAdd1)
     
 def getFinalP(x,y,pn,pa):
     containerT = ttk.Label(fpAddF,text="Please put your "+pn+" into container "+str(x)+", "+str(y)+".",style='TLabel')
@@ -597,6 +606,7 @@ fPillTime2 = Frame(root,width=mainW,height=mainH)
 ftest = Frame(root,width=mainW,height=mainH)
 fsound = Frame(root,width=mainW,height=mainH)
 ftext = Frame(root,width=mainW,height=mainH)
+fCarePin = Frame(root,width=mainW,height=mainH)
 flanguage = Frame(root,width=mainW,height=mainH)
 fpills = Frame(root,width=mainW,height=mainH)
 fcont= Frame(root,width=mainW,height=mainH)
@@ -630,7 +640,7 @@ d.configure('TLabel', background="#595959",foreground="white",font='helvetica 25
 for frame in (fmain, fsettings, fPillTime1,fadd, faddC, fadd1,fadd2,fadd3, fadd35, fadd4, ftime, ftest,fsound, fPillTime,
               fpills, fpAddF,fCare, fPillTime2,fabout,flanguage,ftext,faddg,fusers,fpAdd,fpAdd1,fcont,fremove,
               fSetTimes,fSetTimes1,fSetTimes2,fSetTimes3,fSetTimes4,fSetTimes5,fSetTimes6,fSetTimes7,
-              fSRTimes,fRTimes,fremoveC,fpComplete):
+              fSRTimes,fRTimes,fremoveC,fCarePin,fpComplete):
     frame.grid(row=0,column=0,sticky='news')
     frame.configure(bg="#595959")
     frame.configure(cursor="none")
