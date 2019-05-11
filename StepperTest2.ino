@@ -22,9 +22,6 @@ void setup() {
   AFMSbot.begin();  // create with the default frequency 1.6KHz
   AFMSmid.begin();  // create with the default frequency 1.6KHz
   AFMStop.begin();  // create with the default frequency 1.6KHz
-
-  //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
-  
 }
 
 void loop() {
